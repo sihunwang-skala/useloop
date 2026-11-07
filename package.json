@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e:capture": "node scripts/capture-screens.mjs",
+    "test:rls-local": "bash supabase/tests/run-local-pg.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -26,6 +28,7 @@
     "@types/react-dom": "^19.3.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.4",
+    "playwright-core": "^1.65.0",
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.4",
     "typescript": "^6.0.3",
