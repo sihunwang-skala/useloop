@@ -2,10 +2,12 @@ import Link from "next/link";
 import { logoutAction } from "@/app/actions";
 import { getCtx } from "@/lib/auth";
 import { isDemoMode } from "@/lib/config";
+import { InstallAppButton } from "@/components/pwa";
+import { LanguageSwitcher, type Locale } from "@/components/i18n";
 
 const link = "rounded-md px-3 py-2 text-sm font-medium text-muted hover:text-ink";
 
-export async function Header() {
+export async function Header({ locale }: { locale: Locale }) {
   const { user } = await getCtx();
   return (
     <>
@@ -49,6 +51,8 @@ export async function Header() {
                 <Link href="/signup" className="ml-1 inline-flex min-h-9 items-center rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-dark">시작하기</Link>
               </>
             )}
+            <LanguageSwitcher locale={locale} />
+            <InstallAppButton />
           </nav>
         </div>
       </header>

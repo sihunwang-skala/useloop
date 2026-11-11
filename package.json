@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e:capture": "node scripts/capture-screens.mjs",
-    "test:rls-local": "bash supabase/tests/run-local-pg.sh"
+    "test:rls-local": "bash supabase/tests/run-local-pg.sh",
+    "demo:record": "node scripts/record-demo.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
