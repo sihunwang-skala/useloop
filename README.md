@@ -1,64 +1,141 @@
-# UseLoop (CrossFeedback MVP)
+<div align="center">
 
-고객이 쓰고 있는 서비스에 **비공개 피드백**을 남기고, 다른 스타트업 서비스를 **자유롭게 발견**하며, 기업이 제공하는 체험 혜택을 확인하는 플랫폼의 MVP입니다. 기본 언어는 한국어입니다.
+# UseLoop
 
-> 상태: 테스트용 MVP. 법률 검토 전이며, 법률 안내 문구는 모두 **샘플**입니다 → [LEGAL_REVIEW.md](LEGAL_REVIEW.md)
+**A two-way feedback platform connecting voluntary customer feedback with company responses and trial benefits.**
 
-## 기능
-- **고객**: 회원가입/로그인, 서비스 탐색(비로그인 가능), 비공개 피드백 작성, 기업 답변·진행 상황 확인, 혜택 받기/내 혜택(코드·상태), 신고, 관심 카테고리 설정, 삭제 요청
-- **기업**: 서비스 등록/수정(관리자 승인), 받은 피드백 조회·답변·진행 상태 변경, 기본 통계, 쿠폰·무료 체험권 등록/수량/일시중지, 고객 코드 사용 처리
-- **관리자**: 서비스·혜택 승인/반려, 신고 처리, 삭제 요청 확인, 광고(스폰서) 표시 관리
-- 제외: 결제, 공개 리뷰, 앱스토어 연동 등 → [FUTURE_ROADMAP.md](FUTURE_ROADMAP.md)
+Next.js 16 · React 19 · TypeScript · Installable PWA · Supabase (Postgres + RLS) · Tailwind CSS 4 · Vitest
 
-## 빠른 시작 (Demo Mode — Supabase 불필요)
+**🌐 Language: English · [한국어](README.ko.md)**
+
+![UseLoop – service discovery](docs/screenshots/02-customer-discover.png)
+
+</div>
+
+---
+
+> **Status: portfolio MVP — local Demo only. Not production-ready.** The Supabase path has not been verified against a real instance. See [Development status](#development-status).
+
+## Philosophy
+
+UseLoop is **not** a platform that obliges people to test services. Customers browse, use and give feedback **voluntarily**; companies **respond** and may offer trial benefits.
+
+- Feedback is private (visible only to the author and the company) and treated identically whether positive or negative.
+- Benefits are never tied to positive reviews, ratings, public reviews or app-store ratings. Benefit copy that links rewards to ratings/reviews is rejected server-side and checked again by admin review.
+- "Thank-you" benefits for feedback are **disabled** (env flag and DB setting both `false`) pending legal review.
+- Companies see an anonymous identifier only — never a customer's name or email.
+
+## Demo video (Korean, with captions)
+
+A narrated-by-captions walkthrough of the whole loop — discover → voluntary feedback → company reply → benefit submission → admin approval → claim → redeem. Recorded from the running app in Demo Mode (fictional data).
+
+[![Watch the demo](docs/demo/useloop-demo-ko.gif)](docs/demo/useloop-demo-ko.mp4)
+
+▶ [Full video (MP4)](docs/demo/useloop-demo-ko.mp4) · Captions are in Korean; the app itself can be switched to English with the header language selector.
+
+## Screenshots
+
+All captured from the running app in Demo Mode (fictional data) via `npm run e2e:capture`. UI text is Korean.
+
+| Customer — discover (no login) | Customer — service detail & benefits |
+|---|---|
+| ![](docs/screenshots/02-customer-discover.png) | ![](docs/screenshots/04-customer-service-detail.png) |
+| **Customer — private feedback form** | **Customer — my benefits (claim code)** |
+| ![](docs/screenshots/05-customer-feedback-form.png) | ![](docs/screenshots/06-customer-my-benefits.png) |
+| **Company — dashboard** | **Company — feedback & replies** |
+| ![](docs/screenshots/07-company-dashboard.png) | ![](docs/screenshots/08-company-feedback.png) |
+| **Company — benefits & code redemption** | **Admin — approval queue** |
+| ![](docs/screenshots/10-company-benefits.png) | ![](docs/screenshots/09-admin-queue.png) |
+
+<details><summary>Home & login (Demo)</summary>
+
+![](docs/screenshots/01-home.png)
+![](docs/screenshots/03-login-demo.png)
+
+</details>
+
+## User flows
+
+| Role | Flow |
+|---|---|
+| Customer | Browse without an account → (optional) sign in → write private feedback → see company replies and progress → optionally claim a benefit and view the code |
+| Company | Register a service (admin-approved) → read/answer feedback, set progress, basic stats → submit coupons/free trials (admin-approved) → redeem customer codes once |
+| Admin | Approve/reject services and benefits (checklist: no rating linkage, issuer authority) → handle reports → review deletion requests → manage sponsored ("Ad") labels |
+
+## Architecture
+
+```
+Next.js App Router (Server Components + Server Actions)
+├─ src/app            pages & actions (input parsing only)
+├─ src/lib/services   domain rules, authorization, zod validation, rate limits
+├─ src/lib/store      Store interface
+│   ├─ memory.ts      Demo Mode: in-memory + signed-cookie session
+│   └─ supabase.ts    Production: anon key + user JWT → RLS always applies (no service-role key)
+└─ supabase/migrations/0001_init.sql   schema, RLS, column grants, triggers, RPC (claim_benefit, redeem_claim)
+```
+
+- **Defense in depth:** service-layer checks plus database RLS/triggers.
+- **Coupons:** quantity, per-user uniqueness and single redemption are enforced atomically in DB functions (row lock + constraints).
+- **Demo Mode is fail-closed:** ignored in production when Supabase is configured; the app refuses to start when neither is configured.
+
+More: [ARCHITECTURE.md](ARCHITECTURE.md) · [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)
+
+## Verification
+
+| Check | Scope | Result | Command |
+|---|---|---|---|
+| Unit / domain tests | auth, permissions, feedback, benefits, Demo-mode guard, reward-wording guard | 54 pass | `npm test` |
+| Browser E2E (Demo) | discover → feedback → benefit submit → admin approve → claim → redeem → role boundaries | 18/18 pass | `npm run e2e:capture` |
+| SQL/RLS smoke (plain PostgreSQL 17 + auth stub) | user/company isolation, privilege escalation, self-approval, coupon duplicate/quantity/double-redeem, 10 concurrent claims on qty 3 → exactly 3 | 45 checks + concurrency pass | `npm run test:rls-local` |
+| lint · typecheck · build | | pass | `npm run lint && npm run typecheck && npm run build` |
+| **Real Supabase integration** | RLS, privilege escalation, coupon concurrency | **Not run — unverified** | `tests/integration/supabase-rls.test.ts` |
+
+> The SQL smoke test runs on plain Postgres with a minimal `auth` stub. It is **not** Supabase (GoTrue/PostgREST/JWT) and does not replace integration testing.
+
+## Quick start (Demo Mode)
+
 ```bash
 npm install
-cp .env.example .env.local   # 값이 없어도 데모 모드로 실행됩니다
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local     # contains DEMO_MODE=true
+npm run dev                    # http://localhost:3000
 ```
-데모 모드는 **인메모리 저장소**를 사용하며 서버를 재시작하면 초기화됩니다. 모든 기업·서비스·쿠폰은 `[데모]`/`(데모)` 로 표시되는 **가상 데이터**이며 실제가 아닙니다. 화면 상단에 항상 데모 배너가 표시됩니다.
 
-데모 계정 (로그인 화면에도 표시됨, 비밀번호 `demo-password-1234`):
+Demo data is in-memory and fictional (labelled "[데모]"); a banner is always shown. For a production build, set `DEMO_MODE=true` explicitly. Demo accounts (local only, password `demo-password-1234`): `customer@demo.useloop.test`, `company@demo.useloop.test`, `admin@demo.useloop.test`.
 
-| 역할 | 이메일 |
+The app is an installable hybrid PWA. In a supported desktop or Android browser, use **앱 설치** in the header. On iPhone/iPad, open Safari's Share menu and choose **Add to Home Screen**. Account and feedback data is intentionally not cached offline.
+
+The header language selector switches the interface between Korean and English and remembers the choice for one year. Text authored by users and companies is left in its original language.
+
+## Environment variables
+
+| Name | Description |
 |---|---|
-| 고객 | customer@demo.useloop.test |
-| 기업 | company@demo.useloop.test |
-| 관리자 | admin@demo.useloop.test |
+| `DEMO_MODE` | Demo only when explicitly `true`. Leave unset in production |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project. In production, if both are set the app is always in production mode |
+| `SESSION_SECRET` | Signs the demo session cookie |
+| `FEATURE_FEEDBACK_THANKS` | Thank-you benefits. Keep `false` until legal review |
+| `FEATURE_SPONSORED_LABEL` | Ad label and separate placement |
 
-## 환경변수
-| 이름 | 설명 |
+No service-role key is used. `.env*` files are git-ignored.
+
+## Development status
+
+| Area | Status |
 |---|---|
-| `DEMO_MODE` | `true` 이면 강제로 데모 모드. 프로덕션에서는 `false` |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 프로젝트 값. **둘 다 있고 DEMO_MODE≠true 일 때 프로덕션 모드** |
-| `SESSION_SECRET` | 데모 모드 세션 쿠키 서명용 |
-| `FEATURE_FEEDBACK_THANKS` | 피드백 감사 혜택. **법률 검토 전까지 `false`** |
-| `FEATURE_SPONSORED_LABEL` | 광고 라벨/분리 노출 |
+| Local Demo Mode | ✅ Working, verified |
+| Supabase SQL logic (schema/RLS/RPC) | 🟡 Verified on plain Postgres only |
+| App ↔ real Supabase path | ❌ **Unverified** |
+| Public launch | ❌ Not possible yet |
 
-service-role 키는 사용하지 않습니다(앱은 anon key + 사용자 JWT 로만 DB에 접근하므로 RLS 가 항상 적용됨). `.env*` 파일은 `.gitignore` 대상입니다.
+Launch blockers: real-Supabase integration run; legal review of terms/privacy (current text is a **sample**); **account/data deletion workflow** (only a request flag exists today); distributed rate limiting (currently in-process memory); email verification and bot protection. Details, risk review (spam, multi-accounts, fake reviews, coupon abuse, ads) and proposals: [docs/PRELAUNCH_CHECKLIST.md](docs/PRELAUNCH_CHECKLIST.md) · [LEGAL_REVIEW.md](LEGAL_REVIEW.md).
 
-## 프로덕션 모드 (Supabase)
-1. Supabase 프로젝트 생성 → Authentication 에서 이메일 가입 활성화(필요 시 이메일 확인 정책 설정)
-2. SQL Editor 에서 [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) 실행 (또는 `supabase db push`)
-3. `.env.local` 에 URL/anon key 입력, `DEMO_MODE=false`
-4. 관리자 지정: 가입 후 SQL 로 `update profiles set role='admin' where email='...'` (앱에서 admin 가입 불가)
-5. `npm run build && npm start`
+**Production setup (unverified path):** create a Supabase project → enable email sign-up with confirmation → run `supabase/migrations/0001_init.sql` → set the two Supabase env vars (leave `DEMO_MODE` unset) → promote an admin via SQL → run the integration test against a **dedicated test project** before deploying.
 
-> ⚠️ **Supabase 프로덕션 경로는 실제 Supabase 인스턴스에 대해 아직 실행·검증되지 않았습니다.** (마이그레이션 SQL, RLS, RPC, Supabase 저장소 어댑터는 코드 리뷰 수준) 공개 전 반드시 실제 프로젝트로 통합 테스트를 하세요.
-
-## 스크립트
 ```bash
-npm run typecheck   # tsc --noEmit
-npm run lint        # eslint
-npm test            # vitest (도메인/권한/쿠폰 테스트 40건)
-npm run build
+SUPABASE_TEST_URL=... SUPABASE_TEST_ANON_KEY=... SUPABASE_TEST_ADMIN_EMAIL=... SUPABASE_TEST_ADMIN_PASSWORD=... npm test
 ```
 
-## 배포 (Vercel)
-Vercel 에 저장소를 연결하고 환경변수(`NEXT_PUBLIC_SUPABASE_*`, `DEMO_MODE=false`, `FEATURE_*`)를 설정합니다. 데모 모드는 서버리스에서 인스턴스마다 메모리가 분리되므로 **데모 배포에는 부적합**합니다(로컬/단일 인스턴스용). Rate limit 도 프로세스 메모리 기반이라 프로덕션에서는 Redis 등으로 교체해야 합니다.
-
-## 문서
-[ARCHITECTURE.md](ARCHITECTURE.md) · [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) · [LEGAL_REVIEW.md](LEGAL_REVIEW.md) · [FUTURE_ROADMAP.md](FUTURE_ROADMAP.md)
+---
 
 ## Copyright & Usage / 저작권 및 이용 안내
 

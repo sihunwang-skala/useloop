@@ -39,7 +39,7 @@ export async function signUp(input: unknown): Promise<void> {
   rateLimit(`signup:${await clientKey()}`, 10, 60 * 60 * 1000);
   if (isDemoMode()) {
     const user = demoStore().registerAccount(d);
-    (await cookies()).set(DEMO_COOKIE, makeToken(user.id), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
+    (await cookies()).set(DEMO_COOKIE, makeToken(user.id), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 7 });
     return;
   }
   const { createSupabaseServerClient } = await import("@/lib/supabase/server");
@@ -59,7 +59,7 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (isDemoMode()) {
     const user = demoStore().verifyLogin(email, password);
     if (!user) throw fail;
-    (await cookies()).set(DEMO_COOKIE, makeToken(user.id), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
+    (await cookies()).set(DEMO_COOKIE, makeToken(user.id), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 7 });
     return;
   }
   const { createSupabaseServerClient } = await import("@/lib/supabase/server");

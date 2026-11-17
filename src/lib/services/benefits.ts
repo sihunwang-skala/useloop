@@ -7,15 +7,23 @@ import { type Ctx, nowOf, ownedService, parse, requireCompanyUser, requireRole, 
 
 const dateStr = z.string().refine((v) => !Number.isNaN(Date.parse(v)), "올바른 날짜를 입력해 주세요.");
 
+/**
+ * 평가·평점·리뷰와 혜택을 연결하는 문구 차단(정책 5번: 보상이 피드백 내용에 영향을 주면 안 됨).
+ * 키워드 필터는 완전하지 않으므로 관리자 승인 체크리스트와 함께 쓰는 1차 방어선입니다.
+ */
+const REWARD_LINKED = /(별점|평점|만점|5\s*점|후기|리뷰|review|rating|긍정|좋은\s*평가|추천\s*(글|후기)|앱스토어|플레이스토어|app\s*store|play\s*store)/i;
+export const noRatingLinkage = (v: string) => !REWARD_LINKED.test(v);
+const MSG_LINK = "평가·평점·리뷰와 관련된 문구는 혜택에 넣을 수 없습니다.";
+
 export const benefitSchema = z
   .object({
     serviceId: z.string().min(1, "서비스를 선택해 주세요."),
     type: z.enum(["coupon", "free_trial"]),
     kind: z.enum(["discovery", "thanks"]).default("discovery"),
-    title: z.string().trim().min(2, "제목은 2자 이상이어야 합니다.").max(80),
-    description: z.string().trim().max(1000).default(""),
-    terms: z.string().trim().min(5, "이용 조건을 5자 이상 입력해 주세요.").max(2000),
-    howToUse: z.string().trim().min(5, "사용 방법을 5자 이상 입력해 주세요.").max(1000),
+    title: z.string().trim().min(2, "제목은 2자 이상이어야 합니다.").max(80).refine(noRatingLinkage, MSG_LINK),
+    description: z.string().trim().max(1000).default("").refine(noRatingLinkage, MSG_LINK),
+    terms: z.string().trim().min(5, "이용 조건을 5자 이상 입력해 주세요.").max(2000).refine(noRatingLinkage, MSG_LINK),
+    howToUse: z.string().trim().min(5, "사용 방법을 5자 이상 입력해 주세요.").max(1000).refine(noRatingLinkage, MSG_LINK),
     validFrom: dateStr,
     validUntil: dateStr,
     totalQuantity: z.coerce.number().int("정수를 입력해 주세요.").min(1, "수량은 1 이상이어야 합니다.").max(100000),
